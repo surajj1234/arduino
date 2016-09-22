@@ -1,0 +1,37 @@
+# directorires
+/libraries
+build*
+
+# Object files
+*.o
+*.d
+*.ko
+*.obj
+*.elf
+*.bin
+*.pyc
+
+# Precompiled Headers
+*.gch
+*.pch
+
+# Shared objects (inc. Windows DLLs)
+*.dll
+*.so
+*.so.*
+*.dylib
+
+# Executables
+*.exe
+*.out
+*.app
+*.i*86
+*.x86_64
+*.hex
+
+# Vim crap
+*.swp
+
+# ctags file
+tags
+
