@@ -7,5 +7,5 @@ AVR_TOOLS_DIR = /usr/share/arduino/hardware/tools/avr
 
 BOARD_TAG     = mega2560
 MONITOR_PORT  = /dev/ttyACM0
-
+OPTIMIZATION_LEVEL = 3
 include /usr/share/arduino/Arduino.mk

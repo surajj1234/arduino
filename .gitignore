@@ -10,6 +10,7 @@ build*
 *.elf
 *.bin
 *.pyc
+*.lss
 
 # Precompiled Headers
 *.gch
