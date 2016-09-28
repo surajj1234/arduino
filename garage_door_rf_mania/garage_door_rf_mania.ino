@@ -5,7 +5,7 @@ void isr();
 void run_state_machine();
 void handleStart();
 void handleStart();
-void handleStartDelay();
+void handleWaitForCommand();
 void handleBeginTx();
 void handleWaitForSync();
 void handleAssembleFrame1();
@@ -18,7 +18,7 @@ void tx_off();
 typedef enum State
 {
     START,
-    START_DELAY,
+    WAIT_FOR_COMMAND,
     BEGIN_TX,
     WAIT_FOR_SYNC,
     ASSEMBLE_FRAME1,
@@ -61,8 +61,8 @@ void run_state_machine()
          case START:
              handleStart();
              break;
-         case START_DELAY:
-             handleStartDelay();
+         case WAIT_FOR_COMMAND:
+             handleWaitForCommand();
              break;
          case BEGIN_TX:
              handleBeginTx();
@@ -117,19 +117,22 @@ void isr()
 
 void handleStart()
 {
-     next_state = START_DELAY;
+     next_state = WAIT_FOR_COMMAND;
 }
 
-void handleStartDelay()
+void handleWaitForCommand()
 {
-    if(transitioned_state)
+    if (Serial.available() > 0)
     {
-        state_start = millis();
-    }
-
-    if ((millis() - state_start) > 2000)
-    {
-        next_state = BEGIN_TX;
+        uint8_t incomingByte = Serial.read();
+        if (incomingByte == 's')
+        {
+            Serial.println("#UNO\r\n");
+        }
+        else if (incomingByte == 't')
+        {
+            next_state = BEGIN_TX;
+        }
     }
 }
 
@@ -160,7 +163,7 @@ void handleWaitForSync()
         }
         else
         {
-            next_state = START_DELAY;
+            next_state = WAIT_FOR_COMMAND;
         }
         highPulseDetected = false;
         lowPulseDetected = false;
@@ -245,7 +248,7 @@ void handleEndDelay()
 
     if ((millis() - state_start) > 1000)
     {
-        next_state = BEGIN_TX;
+        next_state = WAIT_FOR_COMMAND;
     }
 }
 
