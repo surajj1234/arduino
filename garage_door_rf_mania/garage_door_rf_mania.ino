@@ -210,6 +210,7 @@ void handlePrintFrames()
 {
     int i, bitVal;
 
+    Serial.print("#");
     for (i = 0; i < bitCounter; i++)
     {
         if (i == 20)
@@ -235,7 +236,7 @@ void handlePrintFrames()
         Serial.print(bitVal);
     }
 
-    Serial.println();
+    Serial.println("\r");
     next_state = END_DELAY;
 }
 
