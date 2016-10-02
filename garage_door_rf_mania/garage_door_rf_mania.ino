@@ -1,11 +1,14 @@
 const int tx_button = 4;
+const int fake_tx_pin = 7;
 const byte interruptPin = 2;
 
 void isr();
+void fake_tx_pulse(int high_us, int low_us);
+void transmit_fake_frame(uint8_t frame[], uint8_t length);
 void run_state_machine();
 void handleStart();
-void handleStart();
 void handleWaitForCommand();
+void handleFakeTx();
 void handleBeginTx();
 void handleWaitForSync();
 void handleAssembleFrame1();
@@ -19,6 +22,7 @@ typedef enum State
 {
     START,
     WAIT_FOR_COMMAND,
+    FAKE_TX,
     BEGIN_TX,
     WAIT_FOR_SYNC,
     ASSEMBLE_FRAME1,
@@ -39,6 +43,8 @@ unsigned long activeList[40] = {0};
 void setup()
 {
     Serial.begin(115200);
+    pinMode(fake_tx_pin, OUTPUT);
+    digitalWrite(fake_tx_pin, LOW);
     pinMode(tx_button, OUTPUT);
     pinMode(interruptPin, INPUT_PULLUP);
     attachInterrupt(0, isr, CHANGE);
@@ -63,6 +69,9 @@ void run_state_machine()
              break;
          case WAIT_FOR_COMMAND:
              handleWaitForCommand();
+             break;
+         case FAKE_TX:
+             handleFakeTx();
              break;
          case BEGIN_TX:
              handleBeginTx();
@@ -125,15 +134,105 @@ void handleWaitForCommand()
     if (Serial.available() > 0)
     {
         uint8_t incomingByte = Serial.read();
-        if (incomingByte == 's')
+        if (incomingByte == 's')            // Status request
         {
             Serial.println("#UNO\r\n");
         }
-        else if (incomingByte == 't')
+        else if (incomingByte == 't')       // Transmit a legit packet
         {
             next_state = BEGIN_TX;
         }
+        else if (incomingByte == 'f')       // Transmit a fake packet 
+        {
+            next_state = FAKE_TX;
+        }
     }
+}
+
+void handleFakeTx()
+{
+    uint8_t bytes_read;
+    uint8_t buffer[40] = {0};
+
+    while(bytes_read < 40)
+    {
+        while (Serial.available() == 0);    //TODO: Add timeout
+        buffer[bytes_read] = Serial.read();
+        bytes_read++;
+    }
+    Serial.write(buffer, 20);
+    Serial.write("\t");
+    Serial.write(buffer+20, 20);
+    Serial.write("\n");
+
+    transmit_fake_frame(buffer, 40);
+    next_state = WAIT_FOR_COMMAND;
+}
+
+void transmit_fake_frame(uint8_t frame[], uint8_t length)
+{
+    if (length != 40)
+        return;
+
+    for (int i = 0; i < 40; i++)
+    {
+        if (frame[i] != '0' && frame[i] != '1' && frame[i] != '2')
+            return;
+    }
+
+    for (int ctr = 0; ctr < 4; ctr++)
+    {
+        // Output Frame 1 sync bit
+        fake_tx_pulse(500, 1000);
+
+        // Output Frame 1
+        for (int i = 0; i < 20; i++)
+        {
+            if (frame[i] == '0')
+            {
+                fake_tx_pulse(500, 1000);
+            }
+            else if (frame[i] == '1')
+            {
+                fake_tx_pulse(500, 500);
+            }
+            else if (frame[i] == '2')
+            {
+                fake_tx_pulse(1000, 500);
+            }
+        }
+        // Delay 60 ms
+        delay(60);
+
+        // Output Frame 2 sync bit
+        fake_tx_pulse(1500, 1000);
+        // Output Frame 2
+        for (int i = 20; i < 40; i++)
+        {
+            if (frame[i] == '0')
+            {
+                fake_tx_pulse(500, 1000);   // Active - inactive < -350 us
+            }
+            else if (frame[i] == '1')
+            {
+                fake_tx_pulse(500, 500);    // -350 < Active - inactive < 350
+            }
+            else if (frame[i] == '2')       // Active - inactive > 350 us
+            {
+                fake_tx_pulse(1000, 500);
+            }
+        }
+        // Delay 60 ms
+        delay(60);
+    }
+}
+
+void fake_tx_pulse(int active_time_us, int inactive_time_us)
+{
+    digitalWrite(fake_tx_pin, HIGH);
+    delayMicroseconds(active_time_us);
+    digitalWrite(fake_tx_pin, LOW);
+    delayMicroseconds(inactive_time_us);
 }
 
 void handleBeginTx()
