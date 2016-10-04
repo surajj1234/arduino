@@ -3,7 +3,8 @@ const int fake_tx_pin = 7;
 const byte interruptPin = 2;
 
 void isr();
-void fake_tx_pulse(int high_us, int low_us);
+void fake_tx_sync_bit(int active_time_us);
+void fake_tx_data_bit(int inactive_time_us, int active_time_us);
 void transmit_fake_frame(uint8_t frame[], uint8_t length);
 void run_state_machine();
 void handleStart();
@@ -160,9 +161,11 @@ void handleFakeTx()
         buffer[bytes_read] = Serial.read();
         bytes_read++;
     }
+    Serial.write("#");
     Serial.write(buffer, 20);
     Serial.write("\t");
     Serial.write(buffer+20, 20);
+    Serial.write("\r");
     Serial.write("\n");
 
     transmit_fake_frame(buffer, 40);
@@ -183,43 +186,43 @@ void transmit_fake_frame(uint8_t frame[], uint8_t length)
     for (int ctr = 0; ctr < 4; ctr++)
     {
         // Output Frame 1 sync bit
-        fake_tx_pulse(500, 1000);
+        fake_tx_sync_bit(500);
 
         // Output Frame 1
         for (int i = 0; i < 20; i++)
         {
             if (frame[i] == '0')
             {
-                fake_tx_pulse(500, 1000);
+                fake_tx_data_bit(1500, 500);
             }
             else if (frame[i] == '1')
             {
-                fake_tx_pulse(500, 500);
+                fake_tx_data_bit(1000, 1000);
             }
             else if (frame[i] == '2')
             {
-                fake_tx_pulse(1000, 500);
+                fake_tx_data_bit(500, 1500);
             }
         }
         // Delay 60 ms
         delay(60);
 
         // Output Frame 2 sync bit
-        fake_tx_pulse(1500, 1000);
+        fake_tx_sync_bit(1500);
         // Output Frame 2
         for (int i = 20; i < 40; i++)
         {
             if (frame[i] == '0')
             {
-                fake_tx_pulse(500, 1000);   // Active - inactive < -350 us
+                fake_tx_data_bit(1500, 500);   // Active - inactive < -350 us
             }
             else if (frame[i] == '1')
             {
-                fake_tx_pulse(500, 500);    // -350 < Active - inactive < 350
+                fake_tx_data_bit(1000, 1000);    // -350 < Active - inactive < 350
             }
             else if (frame[i] == '2')       // Active - inactive > 350 us
             {
-                fake_tx_pulse(1000, 500);
+                fake_tx_data_bit(500, 1500);
             }
         }
         // Delay 60 ms
@@ -227,12 +230,19 @@ void transmit_fake_frame(uint8_t frame[], uint8_t length)
     }
 }
 
-void fake_tx_pulse(int active_time_us, int inactive_time_us)
+void fake_tx_sync_bit(int active_time_us)
 {
     digitalWrite(fake_tx_pin, HIGH);
     delayMicroseconds(active_time_us);
     digitalWrite(fake_tx_pin, LOW);
+}
+
+void fake_tx_data_bit(int inactive_time_us, int active_time_us)
+{
     delayMicroseconds(inactive_time_us);
+    digitalWrite(fake_tx_pin, HIGH);
+    delayMicroseconds(active_time_us);
+    digitalWrite(fake_tx_pin, LOW);
 }
 
 void handleBeginTx()
